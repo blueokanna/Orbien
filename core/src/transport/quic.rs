@@ -84,7 +84,6 @@ impl AsyncWrite for QuicBiStream {
 
 pub struct QuicSession {
     conn: Connection,
-
     _endpoint: Endpoint,
 }
 

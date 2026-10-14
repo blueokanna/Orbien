@@ -2,7 +2,7 @@
 Type=Application
 Name=Orbien Desktop
 GenericName=Intranet Penetration Client
-Comment=Orbien intranet penetration desktop client
+Comment=Orbien desktop client
 Exec=orbien-desktop
 Icon=orbien-desktop
 Terminal=false
