@@ -31,10 +31,18 @@
   </a>
 </div>
 
+<p align="center">
+ <a href="https://www.star-history.com/orbien-org/orbien">
+  <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=orbien-org/orbien&type=rank&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=orbien-org/orbien&type=rank" />
+   <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=orbien-org/orbien&type=rank" />
+  </picture>
+ </a>
+</p>
 <div align="center">
   <a href="https://trendshift.io/repositories/128255?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-128255" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/128255/daily?language=Rust" alt="orbien-org%2Forbien | Trendshift" width="250" height="55"/></a>
 </div>
-
 <div align="center">
   <a href="README.md"><strong>English</strong></a> &nbsp;|&nbsp;
   <a href="README_ZH.md"><strong>简体中文</strong></a>

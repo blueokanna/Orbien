@@ -10,7 +10,7 @@ title: 域名
 
 `domains` 对 http/https 必填且非空。规则：
 
-- 不含 `.` 的短名字（如 `blog`）当作子域前缀，展开为 `{前缀}.{rootDomain}`（需配置服务端 `rootDomain`）
+- 不含 `.` 的短名字（如 `web`）当作子域前缀，展开为 `{前缀}.{rootDomain}`（需配置服务端 `rootDomain`）
 - 带 `.` 的完整域名（如 `web.example.com`）：若属于 `rootDomain` 或其子域，按原样使用；否则当作外部自定义域名，同样按原样使用
 - 不支持通配符
 
@@ -57,10 +57,10 @@ rootDomain = "example.com"
 name = "web"
 protocol = "http"
 service = "127.0.0.1:8080"
-domains = ["blog"]
+domains = ["web"]
 ```
 
-访问域名为 `blog.example.com`。也可同时写前缀和完整域名，例如 `domains = ["web", "app.example.com"]`。
+访问域名为 `web.example.com`。也可同时写前缀和完整域名，例如 `domains = ["web", "app.example.com"]`。
 
 ## 参数
 

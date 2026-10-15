@@ -6,12 +6,12 @@ title: 带宽限制
 
 # 带宽限制
 
-按隧道限制转发带宽。配置在 `[[tunnels]]` 的 `transport` 下。
+按隧道限制转发带宽，配置在 `[[tunnels]]` 的 `transport` 下。
 
 - `bandwidthLimitSide = "client"`：在客户端限速（默认）
 - `bandwidthLimitSide = "server"`：在服务端限速
 
-`bandwidth` 为数字，单位固定为Mbps（如 `2`、`0.5`）。`0` 表示不限制。
+`bandwidth` 为数字，单位固定为Mbps（如 `2`、`0.5`）；`0` 表示不限制。
 
 ## 示例：客户端限速
 

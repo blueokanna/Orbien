@@ -17,7 +17,7 @@ const FeatureList: FeatureItem[] = [
         ),
         description: (
             <Translate id="homepage.feature.perf.desc">
-                高性能、低延迟、抗丢包、内存占用低、无GC停顿，适合长期服务器运行
+                高性能、低延迟、抗丢包、内存占用低、无GC停顿，适合服务器长期运行
             </Translate>
         ),
     },
@@ -49,7 +49,7 @@ const FeatureList: FeatureItem[] = [
         ),
         description: (
             <Translate id="homepage.feature.security.desc">
-                支持 Token 鉴权与 TLS /mTLS 加密传输；HTTPS采用透明转发和可选客户端TLS终止
+                支持 Token 鉴权与 TLS /mTLS 加密传输；HTTPS 采用透明转发和可选客户端 TLS 终止
             </Translate>
         ),
     },

@@ -10,7 +10,7 @@ Forward visitor traffic to a client tunnel by domain. After the server enables `
 
 `domains` is required and must be non-empty for http/https. Rules:
 
-- A short name with no `.` (e.g. `blog`) is treated as a subdomain prefix and expanded to `{prefix}.{rootDomain}` (requires server `rootDomain`)
+- A short name with no `.` (e.g. `web`) is treated as a subdomain prefix and expanded to `{prefix}.{rootDomain}` (requires server `rootDomain`)
 - A full domain with `.` (e.g. `web.example.com`): if it belongs to `rootDomain` or a subdomain of it, it is used as-is; otherwise it is treated as an external custom domain and also used as-is
 - Wildcards are not supported
 
@@ -57,10 +57,10 @@ Client:
 name = "web"
 protocol = "http"
 service = "127.0.0.1:8080"
-domains = ["blog"]
+domains = ["web"]
 ```
 
-The access domain is `blog.example.com`. You can also mix prefixes and full domains, e.g. `domains = ["web", "app.example.com"]`.
+The access domain is `web.example.com`. You can also mix prefixes and full domains, e.g. `domains = ["web", "app.example.com"]`.
 
 ## Parameters
 
