@@ -1,18 +1,15 @@
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::sync::Mutex;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TunnelOwner {
     pub session_id: String,
     pub generation: u64,
 }
-
 #[derive(Debug, Default)]
 pub struct TunnelRegistry {
     by_name: Mutex<HashMap<String, TunnelOwner>>,
 }
-
 impl TunnelRegistry {
     pub fn new() -> Self {
         Self::default()

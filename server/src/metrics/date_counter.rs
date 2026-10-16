@@ -1,12 +1,10 @@
 use chrono::{Local, NaiveDate};
-
 #[derive(Debug)]
 pub struct DateCounter {
     reserve_days: usize,
     counts: Vec<i64>,
     last_date: NaiveDate,
 }
-
 impl DateCounter {
     pub fn new(reserve_days: usize) -> Self {
         let reserve_days = reserve_days.max(1);
@@ -16,7 +14,6 @@ impl DateCounter {
             last_date: Local::now().date_naive(),
         }
     }
-
     pub fn today_count(&mut self) -> i64 {
         self.rotate(Local::now().date_naive());
         self.counts[0]

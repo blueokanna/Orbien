@@ -1,10 +1,8 @@
 use std::sync::atomic::{AtomicI64, Ordering};
-
 #[derive(Debug, Default)]
 pub struct Counter {
     value: AtomicI64,
 }
-
 impl Counter {
     pub fn new() -> Self {
         Self::default()

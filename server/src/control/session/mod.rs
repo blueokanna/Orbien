@@ -20,7 +20,6 @@ use tokio::time::sleep;
 
 type CtrlRead = ReadHalf<DynStream>;
 type CtrlWrite = WriteHalf<DynStream>;
-
 const KICK_WRITE_TIMEOUT: Duration = Duration::from_secs(1);
 const WRITER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const FINISHED_WAIT_TIMEOUT: Duration = Duration::from_secs(5);

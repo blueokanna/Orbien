@@ -4,7 +4,6 @@ mod hour_counter;
 mod mem;
 
 pub use mem::{MemMetrics, TrafficWindow, TunnelTrafficHistory};
-
 pub const RESERVE_DAYS: usize = 7;
 pub const RESERVE_HOURS: usize = 24;
 

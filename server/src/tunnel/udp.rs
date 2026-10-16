@@ -19,7 +19,6 @@ pub struct UdpTunnel {
     closed: Arc<AtomicBool>,
     notify: Arc<Notify>,
     tasks: Mutex<Vec<JoinHandle<()>>>,
-
     _udp: Arc<UdpSocket>,
 }
 

@@ -1,12 +1,10 @@
 use chrono::{DateTime, Local, Timelike};
-
 #[derive(Debug)]
 pub struct HourCounter {
     reserve_hours: usize,
     counts: Vec<i64>,
     last_hour: DateTime<Local>,
 }
-
 impl HourCounter {
     pub fn new(reserve_hours: usize) -> Self {
         let reserve_hours = reserve_hours.max(1);
@@ -16,13 +14,11 @@ impl HourCounter {
             last_hour: truncate_hour(Local::now()),
         }
     }
-
     pub fn last_hours(&mut self, hours: usize) -> Vec<i64> {
         self.rotate(Local::now());
         let n = hours.min(self.reserve_hours);
         self.counts[..n].to_vec()
     }
-
     pub fn inc(&mut self, delta: i64) {
         self.rotate(Local::now());
         self.counts[0] = self.counts[0].saturating_add(delta);

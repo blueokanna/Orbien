@@ -3,7 +3,6 @@ use crate::dashboard::model::{ClientInfo, TunnelInfo};
 use crate::service::Service;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-
 pub struct DashboardSnapshot {
     pub clients: Vec<ClientInfo>,
     pub tunnels: Vec<TunnelInfo>,
@@ -13,7 +12,6 @@ pub struct DashboardSnapshot {
     pub total_traffic_in: u64,
     pub total_traffic_out: u64,
 }
-
 impl Service {
     pub async fn dashboard_snapshot(&self) -> DashboardSnapshot {
         let online: Vec<Arc<Control>> = {
@@ -118,7 +116,6 @@ impl Service {
         }
     }
 }
-
 fn format_tunnel_time(unix: Option<i64>) -> Option<String> {
     let ts = unix?;
     let dt = chrono::DateTime::from_timestamp(ts, 0)?;

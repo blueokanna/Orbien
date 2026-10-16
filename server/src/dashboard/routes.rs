@@ -16,7 +16,6 @@ use orbien_core::VERSION;
 use rust_embed::Embed;
 use serde::Deserialize;
 use std::sync::Arc;
-
 #[derive(Embed)]
 #[folder = "assets/"]
 struct Assets;
@@ -35,7 +34,6 @@ pub fn router(state: Arc<DashState>) -> Router {
         .route("/{*path}", get(static_file))
         .with_state(state)
 }
-
 pub async fn basic_auth(
     State(state): State<Arc<DashState>>,
     req: Request<Body>,
@@ -51,7 +49,6 @@ pub async fn basic_auth(
     );
     Err(res)
 }
-
 fn authorized(state: &DashState, headers: &HeaderMap) -> bool {
     let Some(h) = headers
         .get(header::AUTHORIZATION)
@@ -76,15 +73,12 @@ fn authorized(state: &DashState, headers: &HeaderMap) -> bool {
     };
     u == state.cfg.user && p == state.cfg.password
 }
-
 async fn index_html() -> Response {
     serve_asset("index.html")
 }
-
 async fn favicon() -> Response {
     try_embedded("favicon.ico").unwrap_or_else(|| StatusCode::NOT_FOUND.into_response())
 }
-
 async fn static_file(Path(path): Path<String>) -> Response {
     let rel = path.trim_start_matches('/');
     if !is_safe_asset_path(rel) {
@@ -95,7 +89,6 @@ async fn static_file(Path(path): Path<String>) -> Response {
     }
     serve_asset("index.html")
 }
-
 fn serve_asset(path: &str) -> Response {
     if let Some(res) = try_embedded(path) {
         return res;
@@ -106,12 +99,10 @@ fn serve_asset(path: &str) -> Response {
     )
         .into_response()
 }
-
 fn try_embedded(path: &str) -> Option<Response> {
     let file = Assets::get(path)?;
     Some(bytes_response(content_type(path), file.data.into_owned()))
 }
-
 #[derive(Deserialize)]
 struct PageQuery {
     #[serde(default = "default_page")]
@@ -119,24 +110,20 @@ struct PageQuery {
     #[serde(default = "default_page_size", rename = "pageSize")]
     page_size: usize,
 }
-
 fn default_page() -> usize {
     1
 }
 fn default_page_size() -> usize {
     50
 }
-
 #[derive(Deserialize)]
 struct TrafficQuery {
     #[serde(default)]
     range: String,
 }
-
 fn traffic_window(q: &TrafficQuery) -> TrafficWindow {
     TrafficWindow::parse(&q.range)
 }
-
 fn traffic_resp(hist: TunnelTrafficHistory) -> TunnelTrafficResp {
     TunnelTrafficResp {
         name: hist.name,
@@ -153,7 +140,6 @@ fn traffic_resp(hist: TunnelTrafficHistory) -> TunnelTrafficResp {
             .collect(),
     }
 }
-
 async fn system_info(State(state): State<Arc<DashState>>) -> Json<ApiResponse<SystemInfo>> {
     let snap = state.svc.dashboard_snapshot().await;
     Json(ApiResponse::ok(SystemInfo {
@@ -184,7 +170,6 @@ async fn system_info(State(state): State<Arc<DashState>>) -> Json<ApiResponse<Sy
         },
     }))
 }
-
 async fn system_traffic(
     State(state): State<Arc<DashState>>,
     Query(q): Query<TrafficQuery>,
@@ -192,7 +177,6 @@ async fn system_traffic(
     let hist = state.svc.metrics().server_traffic(traffic_window(&q));
     Json(ApiResponse::ok(traffic_resp(hist)))
 }
-
 async fn list_clients(
     State(state): State<Arc<DashState>>,
     Query(q): Query<PageQuery>,
@@ -230,7 +214,6 @@ async fn get_client(
         None => Err(StatusCode::NOT_FOUND),
     }
 }
-
 async fn kick_client(
     State(state): State<Arc<DashState>>,
     Path(session_id): Path<String>,
@@ -245,7 +228,6 @@ async fn kick_client(
         }),
     }
 }
-
 #[derive(Deserialize)]
 struct TunnelListQuery {
     #[serde(default = "default_page")]
@@ -257,7 +239,6 @@ struct TunnelListQuery {
     #[serde(default)]
     q: String,
 }
-
 async fn list_tunnels(
     State(state): State<Arc<DashState>>,
     Query(q): Query<TunnelListQuery>,
@@ -282,7 +263,6 @@ async fn list_tunnels(
         items: filtered.into_iter().skip(start).take(page_size).collect(),
     }))
 }
-
 async fn tunnel_traffic(
     State(state): State<Arc<DashState>>,
     Path(name): Path<String>,
@@ -298,11 +278,9 @@ async fn tunnel_traffic(
         None => Err(StatusCode::NOT_FOUND),
     }
 }
-
 fn urlencoding_decode(raw: &str) -> String {
     percent_decode(raw).unwrap_or_else(|| raw.to_string())
 }
-
 fn percent_decode(input: &str) -> Option<String> {
     let bytes = input.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -327,7 +305,6 @@ fn percent_decode(input: &str) -> Option<String> {
     }
     String::from_utf8(out).ok()
 }
-
 fn from_hex(b: u8) -> Option<u8> {
     match b {
         b'0'..=b'9' => Some(b - b'0'),
@@ -336,11 +313,9 @@ fn from_hex(b: u8) -> Option<u8> {
         _ => None,
     }
 }
-
 fn is_safe_asset_path(path: &str) -> bool {
     !path.is_empty() && !path.contains("..")
 }
-
 fn content_type(path: &str) -> &'static str {
     if path.ends_with(".js") || path.ends_with(".mjs") {
         "application/javascript; charset=utf-8"

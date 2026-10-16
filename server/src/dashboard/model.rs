@@ -6,7 +6,6 @@ pub struct ApiResponse<T: Serialize> {
     pub msg: String,
     pub data: T,
 }
-
 impl<T: Serialize> ApiResponse<T> {
     pub fn ok(data: T) -> Self {
         Self {
@@ -16,7 +15,6 @@ impl<T: Serialize> ApiResponse<T> {
         }
     }
 }
-
 #[derive(Serialize)]
 pub struct Page<T: Serialize> {
     pub total: usize,
@@ -25,14 +23,12 @@ pub struct Page<T: Serialize> {
     pub page_size: usize,
     pub items: Vec<T>,
 }
-
 #[derive(Serialize)]
 pub struct SystemInfo {
     pub version: String,
     pub config: SystemConfig,
     pub status: SystemStatus,
 }
-
 #[derive(Serialize)]
 pub struct SystemConfig {
     pub listen: String,
@@ -55,7 +51,6 @@ pub struct SystemConfig {
     #[serde(rename = "heartbeatTimeout")]
     pub heartbeat_timeout: i64,
 }
-
 #[derive(Serialize)]
 pub struct SystemStatus {
     #[serde(rename = "clientCounts")]
@@ -71,7 +66,6 @@ pub struct SystemStatus {
     #[serde(rename = "totalTrafficOut")]
     pub total_traffic_out: u64,
 }
-
 #[derive(Serialize)]
 pub struct ClientInfo {
     #[serde(rename = "sessionId")]
@@ -93,7 +87,6 @@ pub struct ClientInfo {
     pub connected_secs: u64,
     pub status: String,
 }
-
 impl ClientInfo {
     pub fn display_id(&self) -> &str {
         if self.agent_id.is_empty() {
@@ -103,7 +96,6 @@ impl ClientInfo {
         }
     }
 }
-
 #[derive(Serialize)]
 pub struct TunnelInfo {
     pub name: String,
@@ -125,7 +117,6 @@ pub struct TunnelInfo {
     #[serde(rename = "lastStartTime", skip_serializing_if = "Option::is_none")]
     pub last_start_time: Option<String>,
 }
-
 #[derive(Serialize)]
 pub struct TunnelTrafficPoint {
     pub date: String,
@@ -134,7 +125,6 @@ pub struct TunnelTrafficPoint {
     #[serde(rename = "trafficOut")]
     pub traffic_out: u64,
 }
-
 #[derive(Serialize)]
 pub struct TunnelTrafficResp {
     pub name: String,
