@@ -91,13 +91,13 @@ impl Service {
             .cfg
             .listen_host()
             .map_err(|e| anyhow!("invalid listen: {e}"))?;
-
         if let Some(ref gw) = this.http_gw {
             let bind = this.cfg.proxy_addr.clone();
             let port = this.cfg.http_gw_port;
             let gw = Arc::clone(gw);
             let shutdown = Arc::clone(&gw_shutdown);
             let keepalive = this.cfg.transport.tcp_keepalive();
+            // HTTP
             set.spawn(
                 async move { run_http_gw_listener(bind, port, gw, keepalive, shutdown).await },
             );
@@ -109,6 +109,7 @@ impl Service {
             let gw = Arc::clone(gw);
             let shutdown = Arc::clone(&gw_shutdown);
             let keepalive = this.cfg.transport.tcp_keepalive();
+            // HTTPS
             set.spawn(
                 async move { run_https_gw_listener(bind, port, gw, keepalive, shutdown).await },
             );
@@ -129,6 +130,7 @@ impl Service {
             )?;
             tracing::info!(%quic_addr, "quic control or data listener ready");
             let svc = Arc::clone(&this);
+            // QUIC
             set.spawn(async move { svc.run_quic(endpoint).await });
         }
 
@@ -143,16 +145,19 @@ impl Service {
                 "kcp control or data listener ready"
             );
             let svc = Arc::clone(&this);
+            // KCP
             set.spawn(async move { svc.run_kcp(listener).await });
         }
 
         if this.cfg.dashboard.enabled() {
             let web_cfg = this.cfg.dashboard.clone();
             let svc = Arc::clone(&this);
+            // Dashboard
             set.spawn(async move { crate::dashboard::run(svc, web_cfg).await });
         }
 
         let svc = Arc::clone(&this);
+        // TCP
         set.spawn(async move { svc.run_tcp(tcp_listener).await });
 
         let first = set

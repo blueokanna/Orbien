@@ -1,6 +1,7 @@
 use super::Service;
 use anyhow::{anyhow, Result};
 use orbien_core::msg::{self, Message};
+use orbien_core::net::tune_tcp_stream;
 use orbien_core::transport::{self, boxed_stream, DynStream};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -10,7 +11,7 @@ impl Service {
     pub(super) async fn run_tcp(self: Arc<Self>, listener: TcpListener) -> Result<()> {
         loop {
             let (stream, peer) = listener.accept().await?;
-            orbien_core::net::tune_tcp_stream(&stream, self.cfg.transport.tcp_keepalive());
+            tune_tcp_stream(&stream, self.cfg.transport.tcp_keepalive());
             let svc = Arc::clone(&self);
             tokio::spawn(async move {
                 if let Err(e) = svc.handle_tcp_or_websocket(stream, peer).await {

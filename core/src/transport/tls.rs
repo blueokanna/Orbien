@@ -269,6 +269,7 @@ pub async fn check_and_enable_tls(
     force: bool,
 ) -> Result<DynStream> {
     let mut first = [0u8; 1];
+
     stream
         .read_exact(&mut first)
         .await

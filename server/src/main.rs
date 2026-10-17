@@ -13,7 +13,7 @@ use tracing_subscriber::EnvFilter;
 #[derive(Parser, Debug)]
 #[command(
     name = "orbien-server",
-    about = "orbien server — TCP tunnel",
+    about = "orbien server",
     after_help = "Example:\n  orbien-server -c conf/orbien-server.toml"
 )]
 struct Args {
