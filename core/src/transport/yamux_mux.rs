@@ -44,6 +44,7 @@ impl YamuxClient {
             .send(tx)
             .await
             .map_err(|_| anyhow!("yamux client session closed"))?;
+
         rx.await
             .map_err(|_| anyhow!("yamux open_stream cancelled"))?
     }

@@ -125,6 +125,7 @@ impl Service {
                     first_attempt = false;
                     let delay = backoff_secs;
                     on_log(format!("INFO  retrying in {delay}s"));
+
                     if wait_or_reload(reload_rx, &cfg, &cancel, delay, &mut on_log).await {
                         fail_pending_reload(
                             &mut pending_reload_reply,
@@ -145,7 +146,6 @@ impl Service {
             if let Some(pending) = pending_reload_reply.take() {
                 let _ = pending.reply.send(Ok(pending.outcome));
             }
-
             let end = run_session_loop(session, reload_rx, &cfg, &cancel, &mut on_log).await;
 
             on_remotes_clear();
@@ -221,6 +221,7 @@ impl Service {
             backoff_secs = backoff_secs
                 .saturating_mul(2)
                 .clamp(RECONNECT_BASE_SECS, RECONNECT_MAX_SECS);
+            //loop end
         }
     }
 }

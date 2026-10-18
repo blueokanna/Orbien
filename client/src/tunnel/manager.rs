@@ -120,6 +120,7 @@ impl TunnelManager {
                 entry.cfg.name
             ));
         }
+        // 连接到本地真实服务
         let local = TcpStream::connect(&local_addr).await.map_err(|e| {
             anyhow!(
                 "dial local {} for tunnel {}: {}",
@@ -163,6 +164,7 @@ impl TunnelManager {
             limited = entry.limiter.is_some(),
             "joining data <-> local"
         );
+        // 将数据连接与本地服务连接桥接，实现双向数据转发
         if let Err(e) = io::join(data, local).await {
             tracing::debug!(error = %e, "join ended");
         }

@@ -43,7 +43,7 @@ impl Control {
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
             if self.closed.load(Ordering::SeqCst) {
-                return Err(anyhow!("control closed while waiting for data conn"));
+                return Err(anyhow!("control closed while waiting for data connection"));
             }
             if let Some(conn) = self.try_pop_data().await {
                 self.spawn_refill().await;
@@ -51,7 +51,7 @@ impl Control {
             }
             let remaining = deadline.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
-                return Err(anyhow!("timeout waiting for data conn"));
+                return Err(anyhow!("timeout waiting for data connection"));
             }
             tokio::select! {
                 _ = self.data_notify.notified() => {}

@@ -433,7 +433,7 @@ impl Control {
                             _ = cancel.cancelled() => {}
                             res = ctl.handle_req_data_conn() => {
                                 if let Err(e) = res {
-                                    tracing::error!(error = %e, "data conn failed");
+                                    tracing::error!(error = %e, "data connection failed");
                                 }
                             }
                         }

@@ -3,7 +3,6 @@ use std::time::{Duration, Instant};
 
 pub struct BandwidthLimiter {
     rate: f64,
-
     burst: f64,
     state: Mutex<State>,
 }
