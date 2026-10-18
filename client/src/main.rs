@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use orbien_client::{local_control, ClientConfig, ClientHandle, StartOptions};
+use orbien_core::logging;
 use std::path::PathBuf;
-use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -29,10 +29,6 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive("info".parse()?))
-        .init();
-
     let cli = Cli::parse();
     let config_path = orbien_client::resolve_client_config_path(cli.config.as_deref())?;
 
@@ -44,8 +40,10 @@ async fn main() -> Result<()> {
 }
 
 async fn run(config_path: PathBuf) -> Result<()> {
-    tracing::info!(config = %config_path.display(), "loading config");
     let cfg = ClientConfig::load(&config_path)?;
+    let _guard = logging::init(&cfg.log)?;
+
+    tracing::info!(config = %config_path.display(), "config loaded");
     tracing::info!(
         server = %cfg.server_endpoint(),
         protocol = %cfg.transport.protocol,

@@ -45,6 +45,9 @@ pub struct ServerConfig {
         alias = "udp_packet_size"
     )]
     pub udp_packet_size: usize,
+
+    #[serde(default)]
+    pub log: super::LogConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -331,6 +334,7 @@ impl Default for ServerConfig {
             transport: ServerTransportConfig::default(),
             dashboard: DashboardConfig::default(),
             udp_packet_size: default_udp_packet_size(),
+            log: super::LogConfig::default(),
         }
     }
 }
@@ -401,9 +405,11 @@ impl ServerConfig {
         }
 
         self.transport.ws_path = crate::transport::normalize_ws_path(&self.transport.ws_path);
+        self.log.complete();
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
+        self.log.validate()?;
         let (listen_host, listen_port) = parse_host_port(&self.listen, default_listen_port())
             .with_context(|| format!("invalid listen '{}'", self.listen))?;
 

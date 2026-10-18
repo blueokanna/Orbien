@@ -29,6 +29,9 @@ pub struct ClientConfig {
         alias = "udp_packet_size"
     )]
     pub udp_packet_size: usize,
+
+    #[serde(default)]
+    pub log: super::LogConfig,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -396,9 +399,11 @@ impl ClientConfig {
         }
 
         self.transport.ws_path = crate::transport::normalize_ws_path(&self.transport.ws_path);
+        self.log.complete();
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
+        self.log.validate()?;
         if self.server.trim().is_empty() {
             return Err(anyhow!("server is required (host:port)"));
         }

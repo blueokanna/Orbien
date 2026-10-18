@@ -102,3 +102,8 @@ remotePort = 9002
 type = "socks5"
 username = "admin"
 password = "123456"
+
+[log]
+file = "./orbien.log"
+level = "info"
+maxDays = 3

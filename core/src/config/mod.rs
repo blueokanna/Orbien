@@ -1,5 +1,6 @@
 mod client;
 mod env;
+mod log;
 mod server;
 
 pub use client::{
@@ -7,6 +8,7 @@ pub use client::{
     TunnelTransportConfig,
 };
 pub use env::{contains_env_placeholders, expand_env_placeholders};
+pub use log::LogConfig;
 pub use server::{
     parse_host_port, DashboardConfig, QuicConfig, ServerConfig, ServerTlsConfig,
     ServerTransportConfig,

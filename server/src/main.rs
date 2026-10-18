@@ -8,7 +8,7 @@ mod tunnel;
 use anyhow::Result;
 use clap::Parser;
 use orbien_core::config::ServerConfig;
-use tracing_subscriber::EnvFilter;
+use orbien_core::logging;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -23,13 +23,14 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive("info".parse()?))
-        .init();
-
     let args = Args::parse();
-    let cfg = load_server_config(&args)?;
+    let (cfg, config_src) = load_server_config(&args)?;
+    let _guard = logging::init(&cfg.log)?;
 
+    match config_src {
+        Some(path) => tracing::info!(config = %path, "config loaded"),
+        None => tracing::info!("using built-in defaults"),
+    }
     tracing::info!(
         listen = %cfg.listen,
         quic_port = cfg.quic_port,
@@ -42,20 +43,18 @@ async fn main() -> Result<()> {
     service::Service::new(cfg)?.run().await
 }
 
-fn load_server_config(args: &Args) -> Result<ServerConfig> {
+fn load_server_config(args: &Args) -> Result<(ServerConfig, Option<String>)> {
     if let Some(path) = args
         .config
         .as_deref()
         .map(str::trim)
         .filter(|p| !p.is_empty())
     {
-        tracing::info!(config = %path, "loading config");
-        return ServerConfig::load(path);
+        return Ok((ServerConfig::load(path)?, Some(path.to_string())));
     }
 
-    tracing::info!("using built-in defaults");
     let mut cfg = ServerConfig::default();
     cfg.complete();
     cfg.validate()?;
-    Ok(cfg)
+    Ok((cfg, None))
 }
