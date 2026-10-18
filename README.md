@@ -52,7 +52,7 @@
 
 ![dashboard.png](doc/img/dashboard.png)
 
-A lightweight, high-performance, and secure intranet penetration tool with a binary size of around `5MB`.
+A lightweight, high-performance, and secure reverse proxy with a binary size of around 5MB. Securely expose local services behind a firewall to the public internet.
 
 ## Features
 
