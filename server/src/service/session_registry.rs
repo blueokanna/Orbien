@@ -37,7 +37,9 @@ impl Service {
                     version: VERSION.into(),
                     session_id: String::new(),
                     error: "authorization failed".into(),
+                    codec: String::new(),
                 }),
+                msg::Codec::Json,
             )
             .await;
             return Err(anyhow!("authorization failed"));
@@ -170,6 +172,7 @@ impl Service {
         self: Arc<Self>,
         stream: DynStream,
         nw: NewDataConn,
+        codec: msg::Codec,
     ) -> Result<()> {
         if nw.session_id.trim().is_empty() {
             return Err(anyhow!("empty session_id for data connection"));
@@ -179,7 +182,6 @@ impl Service {
             &nw.auth_digest,
             nw.timestamp,
             auth::unix_now_secs(),
-            None,
         ) {
             tracing::warn!(
                 %reason,
@@ -194,7 +196,7 @@ impl Service {
 
         match session_table::lookup_accepting(&self.controls, &nw.session_id).await {
             Some(c) => {
-                c.push_data_conn(stream).await;
+                c.push_data_conn(stream, codec).await;
                 Ok(())
             }
             None => Err(anyhow!(
@@ -212,7 +214,9 @@ async fn reject_login(mut stream: DynStream, error: &str) -> Result<()> {
             version: VERSION.into(),
             session_id: String::new(),
             error: error.into(),
+            codec: String::new(),
         }),
+        msg::Codec::Json,
     )
     .await;
     Err(anyhow!(error.to_string()))

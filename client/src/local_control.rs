@@ -3,7 +3,6 @@ use crate::reload::ReloadOutcome;
 #[cfg(unix)]
 use anyhow::bail;
 use anyhow::{anyhow, Context, Result};
-use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::{Path, PathBuf};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
@@ -17,19 +16,20 @@ const SOCKET_FILE: &str = "control.sock";
 #[cfg(windows)]
 const DEFAULT_PIPE_NAME: &str = r"\\.\pipe\orbien-control";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, nextjson::NsonDeserialize, nextjson::NsonSerialize)]
 struct ControlRequest {
+    #[njson(default)]
     op: String,
-    #[serde(default)]
+    #[njson(default)]
     config: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, nextjson::NsonDeserialize, nextjson::NsonSerialize)]
 struct ControlResponse {
     ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[njson(default, skip_serializing_if = "Option::is_none")]
     outcome: Option<ReloadOutcome>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[njson(default, skip_serializing_if = "Option::is_none")]
     error: Option<String>,
 }
 
@@ -238,7 +238,7 @@ where
         _ => return Err(anyhow!("empty control request")),
     };
 
-    let req: ControlRequest = serde_json::from_str(&line)?;
+    let req: ControlRequest = nextjson::nextdecode(line.as_bytes())?;
     let resp = match req.op.as_str() {
         "reload" => handle_reload(&handle, req.config.as_deref()).await,
         "ping" => ControlResponse {
@@ -253,8 +253,8 @@ where
         },
     };
 
-    let body = serde_json::to_string(&resp)?;
-    writer.write_all(body.as_bytes()).await?;
+    let body = nextjson::nextencode(&resp)?;
+    writer.write_all(&body).await?;
     writer.write_all(b"\n").await?;
     Ok(())
 }
@@ -293,11 +293,13 @@ pub async fn reload_via_socket(config_path: &Path) -> Result<ReloadOutcome> {
         )
     })?;
     let (reader, mut writer) = tokio::io::split(stream);
-    let req = serde_json::json!({
-        "op": "reload",
-        "config": config_path.to_string_lossy(),
-    });
-    writer.write_all(req.to_string().as_bytes()).await?;
+    let req = ControlRequest {
+        op: "reload".into(),
+        config: Some(config_path.to_string_lossy().into_owned()),
+    };
+    writer
+        .write_all(nextjson::nextencode(&req)?.as_slice())
+        .await?;
     writer.write_all(b"\n").await?;
 
     let mut lines = BufReader::new(reader).lines();
@@ -305,7 +307,7 @@ pub async fn reload_via_socket(config_path: &Path) -> Result<ReloadOutcome> {
         .next_line()
         .await?
         .ok_or_else(|| anyhow!("empty control response"))?;
-    let resp: ControlResponse = serde_json::from_str(&line)?;
+    let resp: ControlResponse = nextjson::nextdecode(line.as_bytes())?;
     if let Some(outcome) = resp.outcome {
         if resp.ok {
             Ok(outcome)

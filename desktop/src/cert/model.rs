@@ -1,7 +1,9 @@
-use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+use nextjson::{NsonDeserialize, NsonSerialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, NsonSerialize, NsonDeserialize)]
+#[njson(rename_all = "lowercase")]
 pub enum Vendor {
     Cloudflare,
     Aliyun,
@@ -35,39 +37,39 @@ impl Vendor {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, NsonSerialize, NsonDeserialize)]
 pub struct Provider {
     pub id: String,
     pub name: String,
     pub vendor: Vendor,
-    #[serde(default, rename = "accessKeyId")]
+    #[njson(default, rename = "accessKeyId")]
     pub access_key_id: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Default, NsonSerialize, NsonDeserialize)]
 pub struct ProviderFile {
-    #[serde(default)]
+    #[njson(default)]
     pub providers: Vec<Provider>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, NsonSerialize, NsonDeserialize)]
 pub struct Cert {
     pub id: String,
     pub domains: Vec<String>,
-    #[serde(rename = "providerId")]
+    #[njson(rename = "providerId")]
     pub provider_id: String,
-    #[serde(rename = "notAfter")]
+    #[njson(rename = "notAfter")]
     pub not_after: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Default, NsonSerialize, NsonDeserialize)]
 pub struct CertFile {
-    #[serde(default)]
+    #[njson(default)]
     pub certs: Vec<Cert>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Default, NsonSerialize, NsonDeserialize)]
 pub struct SecretsFile {
-    #[serde(default)]
-    pub secrets: std::collections::HashMap<String, String>,
+    #[njson(default)]
+    pub secrets: HashMap<String, String>,
 }

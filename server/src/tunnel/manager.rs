@@ -156,14 +156,11 @@ pub fn format_local_addr(ip: &str, port: i32) -> String {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone)]
 pub struct TunnelSummary {
     pub name: String,
-    #[serde(rename = "type")]
     pub tunnel_type: String,
-    #[serde(rename = "remoteAddr")]
     pub remote_addr: String,
-    #[serde(rename = "localAddr")]
     pub local_addr: String,
     pub status: String,
 }

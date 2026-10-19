@@ -25,10 +25,9 @@ where
     let mut a = CountingStream::new(a, ca.clone());
     let mut b = CountingStream::new(b, cb.clone());
 
-    let err = match copy_bidirectional_with_sizes(&mut a, &mut b, JOIN_BUF, JOIN_BUF).await {
-        Ok(_) => None,
-        Err(e) => Some(e),
-    };
+    let err = copy_bidirectional_with_sizes(&mut a, &mut b, JOIN_BUF, JOIN_BUF)
+        .await
+        .err();
 
     let a_to_b = ca.read();
     let b_to_a = cb.read();

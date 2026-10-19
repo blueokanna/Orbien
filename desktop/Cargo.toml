@@ -2,9 +2,10 @@
 name = "orbien-desktop"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Orbien Desktop — native Slint UI (in-process client)"
+description = "Orbien Desktop - native Slint UI (in-process client)"
 build = "build.rs"
 
 [[bin]]
@@ -15,6 +16,8 @@ path = "src/main.rs"
 slint = { version = "1.17", features = ["unstable-winit-030"] }
 orbien-client = { workspace = true }
 orbien-core = { workspace = true }
+orbien-proto = { workspace = true }
+nextjson = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }

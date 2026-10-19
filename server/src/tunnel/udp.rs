@@ -1,8 +1,9 @@
 use crate::control::Control;
+use crate::control::DataConn;
 use crate::metrics::MemMetrics;
 use anyhow::Result;
 use orbien_core::limit::{maybe_limit, BandwidthLimiter};
-use orbien_core::msg::{self, Message, UdpPacket};
+use orbien_core::msg::{self, FrameWriter, Message, UdpPacket};
 use orbien_core::udp::{forward_user_conn, CHANNEL_CAP, SERVER_DATA_READ_DEADLINE};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -111,6 +112,9 @@ async fn abort_wait(h: JoinHandle<()>) {
     let _ = h.await;
 }
 
+/// Frames coalesced into a single write, see `client::tunnel::udp`.
+const WRITE_BATCH: usize = 64;
+
 async fn data_conn_loop(
     tunnel_name: String,
     control: std::sync::Weak<Control>,
@@ -120,6 +124,8 @@ async fn data_conn_loop(
     closed: Arc<AtomicBool>,
     notify: Arc<Notify>,
 ) {
+    let mut batch: Vec<UdpPacket> = Vec::with_capacity(WRITE_BATCH);
+
     while !closed.load(Ordering::SeqCst) {
         let Some(control) = control.upgrade() else {
             return;
@@ -155,8 +161,10 @@ async fn data_conn_loop(
             }
         };
 
-        let data = maybe_limit(data, limiter.clone());
-        let (reader, mut writer) = tokio::io::split(data);
+        let DataConn { stream, codec } = data;
+        let data = maybe_limit(stream, limiter.clone());
+        let (reader, writer) = tokio::io::split(data);
+        let mut frames = FrameWriter::with_capacity(writer, 8 * 1024);
         tracing::info!(
             tunnel = %tunnel_name,
             "udp data conn established"
@@ -187,34 +195,30 @@ async fn data_conn_loop(
                     }
                     break true;
                 }
-                pkt = send_rx.recv() => {
-                    match pkt {
-                        Some(pkt) => {
-                            let nbytes = pkt.content.len() as u64;
-                            tracing::trace!(
-                                tunnel = %tunnel_name,
-                                len = nbytes,
-                                "udp packet to data"
-                            );
-                            if msg::write_msg(&mut writer, &Message::UdpPacket(pkt))
-                                .await
-                                .is_err()
-                            {
-                                tracing::warn!(tunnel = %tunnel_name, "udp data write error");
-                                if let Some(h) = reader_task.take() {
-                                    abort_wait(h).await;
-                                }
-                                break true;
-                            }
-                            metrics.add_traffic_in(&tunnel_name, "udp", nbytes);
+                queued = send_rx.recv_many(&mut batch, WRITE_BATCH) => {
+                    if queued == 0 {
+                        if let Some(h) = reader_task.take() {
+                            abort_wait(h).await;
                         }
-                        None => {
-                            if let Some(h) = reader_task.take() {
-                                abort_wait(h).await;
-                            }
-                            return;
-                        }
+                        return;
                     }
+                    let nbytes: u64 = batch.iter().map(|p| p.content.len() as u64).sum();
+                    tracing::trace!(
+                        tunnel = %tunnel_name,
+                        packets = queued,
+                        len = nbytes,
+                        "udp packets to data"
+                    );
+                    let written = frames.write_batch(&batch, codec).await;
+                    batch.clear();
+                    if let Err(e) = written {
+                        tracing::warn!(tunnel = %tunnel_name, error = %e, "udp data write error");
+                        if let Some(h) = reader_task.take() {
+                            abort_wait(h).await;
+                        }
+                        break true;
+                    }
+                    metrics.add_traffic_in(&tunnel_name, "udp", nbytes);
                 }
             }
         };
@@ -232,12 +236,18 @@ async fn data_reader<R: AsyncRead + Unpin + Send + 'static>(
     tunnel_name: String,
     metrics: Arc<MemMetrics>,
 ) {
+    let mut body = Vec::with_capacity(2 * 1024);
     loop {
-        match timeout(SERVER_DATA_READ_DEADLINE, msg::read_msg(&mut reader)).await {
-            Ok(Ok(Message::Ping(_))) => {
+        match timeout(
+            SERVER_DATA_READ_DEADLINE,
+            msg::read_msg_into(&mut reader, &mut body),
+        )
+        .await
+        {
+            Ok(Ok((Message::Ping(_), _))) => {
                 tracing::trace!(tunnel = %tunnel_name, "udp data ping");
             }
-            Ok(Ok(Message::UdpPacket(pkt))) => {
+            Ok(Ok((Message::UdpPacket(pkt), _))) => {
                 let nbytes = pkt.content.len() as u64;
                 tracing::trace!(
                     tunnel = %tunnel_name,
@@ -247,7 +257,7 @@ async fn data_reader<R: AsyncRead + Unpin + Send + 'static>(
                 metrics.add_traffic_out(&tunnel_name, "udp", nbytes);
                 let _ = read_tx.try_send(pkt);
             }
-            Ok(Ok(other)) => {
+            Ok(Ok((other, _))) => {
                 tracing::debug!(
                     tunnel = %tunnel_name,
                     ty = other.type_byte(),

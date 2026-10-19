@@ -213,7 +213,7 @@ async fn handle_http_ingress(
         )
         .await?;
 
-    let mut data = maybe_limit(data, route.limiter.clone());
+    let mut data = maybe_limit(data.stream, route.limiter.clone());
     let preamble_len = (raw.len() + head.body_prefix.len()) as u64;
     data.write_all(&raw).await?;
     if !head.body_prefix.is_empty() {

@@ -1,11 +1,11 @@
 use crate::msg::{Message, Ping, UdpPacket, UdpSocketAddr};
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::UdpSocket;
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::{timeout, Instant};
+use tokio::sync::mpsc;
+use tokio::time::Instant;
 
 pub const CHANNEL_CAP: usize = 1024;
 pub const CLIENT_IDLE: Duration = Duration::from_secs(30);
@@ -69,12 +69,14 @@ pub async fn forwarder(
             continue;
         };
 
-        let (udp_conn, is_new) = {
-            let guard = map.lock().await;
-            if let Some(c) = guard.get(&remote) {
-                (Arc::clone(c), false)
-            } else {
-                drop(guard);
+        let existing = {
+            let guard = map.lock().unwrap_or_else(|e| e.into_inner());
+            guard.get(&remote).map(Arc::clone)
+        };
+
+        let (udp_conn, is_new) = match existing {
+            Some(conn) => (conn, false),
+            None => {
                 let sock = match UdpSocket::bind("0.0.0.0:0").await {
                     Ok(s) => s,
                     Err(e) => {
@@ -87,7 +89,7 @@ pub async fn forwarder(
                     continue;
                 }
                 let sock = Arc::new(sock);
-                let mut guard = map.lock().await;
+                let mut guard = map.lock().unwrap_or_else(|e| e.into_inner());
                 match guard.entry(remote) {
                     std::collections::hash_map::Entry::Occupied(e) => (Arc::clone(e.get()), false),
                     std::collections::hash_map::Entry::Vacant(e) => {
@@ -121,8 +123,9 @@ pub async fn forwarder(
 
         if let Err(e) = udp_conn.send(&payload).await {
             tracing::debug!(error = %e, "udp write to local failed");
-            let mut guard = map.lock().await;
-            guard.remove(&remote);
+            map.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(&remote);
             continue;
         }
 
@@ -143,8 +146,7 @@ pub async fn forwarder(
         }
     }
 
-    let mut guard = map.lock().await;
-    guard.clear();
+    map.lock().unwrap_or_else(|e| e.into_inner()).clear();
 }
 
 struct LocalReaderCtx {
@@ -157,15 +159,16 @@ struct LocalReaderCtx {
 
 async fn writer_fn(ctx: LocalReaderCtx) {
     let mut buf = vec![0u8; ctx.buf_size.max(512)];
-    let mut last_activity = Instant::now();
+    // One timer per connection, reset on activity. A `timeout` around every
+    // `recv` would register and cancel a timer per datagram.
+    let idle = tokio::time::sleep(CLIENT_IDLE);
+    tokio::pin!(idle);
+
     loop {
-        let remaining = CLIENT_IDLE.saturating_sub(last_activity.elapsed());
-        if remaining.is_zero() {
-            break;
-        }
-        match timeout(remaining, ctx.udp_conn.recv(&mut buf)).await {
-            Ok(Ok(n)) => {
-                last_activity = Instant::now();
+        tokio::select! {
+            received = ctx.udp_conn.recv(&mut buf) => {
+                let Ok(n) = received else { break };
+                idle.as_mut().reset(Instant::now() + CLIENT_IDLE);
                 let pkt = UdpPacket {
                     content: buf[..n].to_vec(),
                     local_addr: None,
@@ -175,11 +178,13 @@ async fn writer_fn(ctx: LocalReaderCtx) {
                     break;
                 }
             }
-            Ok(Err(_)) | Err(_) => break,
+            _ = &mut idle => break,
         }
     }
-    let mut guard = ctx.map.lock().await;
-    guard.remove(&ctx.remote);
+    ctx.map
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&ctx.remote);
 }
 
 pub fn spawn_data_ping(send_tx: mpsc::Sender<Message>) -> tokio::task::JoinHandle<()> {

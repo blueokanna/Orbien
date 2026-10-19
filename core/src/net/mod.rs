@@ -1,7 +1,9 @@
+mod dns;
 mod proxy_protocol;
 mod tcp;
 mod xff;
 
+pub use dns::{resolve_endpoint, resolve_host, resolve_socket_addr};
 pub use proxy_protocol::{
     addrs_from_start_data_conn, build_proxy_protocol_header, parse_proxy_protocol_version,
     try_consume_proxy_protocol, ParsedProxyHeader, PpConsume, PROXY_PROTOCOL_MAX_HEADER,

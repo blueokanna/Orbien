@@ -144,9 +144,9 @@ impl Service {
         peer: SocketAddr,
     ) -> Result<()> {
         let first = msg::read_msg(&mut stream).await?;
-        match first {
+        match first.0 {
             Message::Login(login) => self.register_control(stream, login, peer).await,
-            Message::NewDataConn(nw) => self.register_data_conn(stream, nw).await,
+            Message::NewDataConn(nw) => self.register_data_conn(stream, nw, first.1).await,
             other => Err(anyhow!("unexpected first message: {:?}", other.type_byte())),
         }
     }

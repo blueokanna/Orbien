@@ -18,7 +18,6 @@ use anyhow::Context;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub const CLIENT_DEFAULT_CONFIG: &str = "orbien.toml";
 pub const CLIENT_CONFIG_CANDIDATES: &[&str] = &["orbien.toml", "conf/orbien.toml"];
 
 pub fn resolve_client_config_path(explicit: Option<&str>) -> anyhow::Result<PathBuf> {

@@ -1,3 +1,3 @@
 mod session;
 
-pub use session::Control;
+pub use session::{Control, DataConn};

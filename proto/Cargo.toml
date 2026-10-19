@@ -1,0 +1,13 @@
+[package]
+name = "orbien-proto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Orbien control-plane protocol: no_std message contracts, framing and authentication"
+
+[dependencies]
+nextjson = { workspace = true }
+rustbinary = { workspace = true }
+hmac = { workspace = true }
+sha2 = { workspace = true }

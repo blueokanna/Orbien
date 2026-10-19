@@ -4,12 +4,12 @@ use crate::tunnel::TunnelManager;
 use anyhow::{anyhow, Result};
 use orbien_core::auth;
 use orbien_core::config::{ClientConfig, TunnelConfig};
-use orbien_core::msg::{self, CloseTunnel, Login, Message, NewDataConn, NewTunnel, Ping};
+use orbien_core::msg::{self, CloseTunnel, Codec, Login, Message, NewDataConn, NewTunnel, Ping};
 use orbien_core::transport::DynStream;
 use orbien_core::VERSION;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncWriteExt, ReadHalf, WriteHalf};
@@ -59,6 +59,7 @@ pub struct Control {
     on_tunnel_remote: OnTunnelRemote,
     on_tunnel_removed: OnTunnelRemoved,
     last_pong_unix: AtomicI64,
+    codec: AtomicU8,
     register_watch: StdMutex<RegisterWatch>,
 }
 
@@ -124,8 +125,8 @@ impl Control {
             "login identity"
         );
 
-        msg::write_msg(&mut stream, &Message::Login(login)).await?;
-        let resp = match msg::read_msg(&mut stream).await? {
+        msg::write_msg(&mut stream, &Message::Login(login), Codec::Json).await?;
+        let resp = match msg::read_msg(&mut stream).await?.0 {
             Message::LoginResp(r) => r,
             other => {
                 return Err(anyhow!(
@@ -139,7 +140,16 @@ impl Control {
             return Err(LoginRejected { reason: resp.error }.into());
         }
 
-        tracing::info!(session_id = %resp.session_id, "login ok");
+        let codec = if resp.codec == Codec::Binary.as_str() {
+            Codec::Binary
+        } else {
+            Codec::Json
+        };
+        tracing::debug!(
+            session_id = %resp.session_id,
+            codec = codec.as_str(),
+            "login ok"
+        );
 
         let (reader, writer) = tokio::io::split(stream);
         let ctl = Arc::new(Control {
@@ -154,6 +164,7 @@ impl Control {
             on_tunnel_remote,
             on_tunnel_removed,
             last_pong_unix: AtomicI64::new(now_secs()),
+            codec: AtomicU8::new(if codec.is_binary() { 1 } else { 0 }),
             register_watch: StdMutex::new(RegisterWatch {
                 pending: HashSet::new(),
                 errors: HashMap::new(),
@@ -217,12 +228,20 @@ impl Control {
         &self.session_id
     }
 
+    fn codec(&self) -> Codec {
+        if self.codec.load(Ordering::Relaxed) == 1 {
+            Codec::Binary
+        } else {
+            Codec::Json
+        }
+    }
+
     pub async fn close_tunnel(&self, name: &str) -> Result<()> {
         let msg = Message::CloseTunnel(CloseTunnel {
             tunnel_name: name.into(),
         });
         let mut writer = self.writer.lock().await;
-        msg::write_msg(&mut *writer, &msg).await?;
+        msg::write_msg(&mut *writer, &msg, self.codec()).await?;
         drop(writer);
         self.tunnels.remove(name);
         (self.on_tunnel_removed)(name.into());
@@ -239,7 +258,8 @@ impl Control {
             .unwrap_or_else(|e| e.into_inner())
             .begin(&tunnel.name);
         let mut writer = self.writer.lock().await;
-        msg::write_msg(&mut *writer, &msg).await?;
+        msg::write_msg(&mut *writer, &msg, self.codec()).await?;
+        drop(writer);
         tracing::info!(name = %tunnel.name, protocol = %tunnel.protocol, "sent NewTunnel");
         Ok(())
     }
@@ -413,7 +433,7 @@ impl Control {
                     msg::read_msg(&mut *reader).await
                 } => {
                     match msg {
-                        Ok(m) => m,
+                        Ok((m, _)) => m,
                         Err(_) => return Ok(ReaderEnd::Closed),
                     }
                 }
@@ -497,7 +517,7 @@ impl Control {
                 timestamp,
             };
             let mut writer = self.writer.lock().await;
-            if msg::write_msg(&mut *writer, &Message::Ping(ping))
+            if msg::write_msg(&mut *writer, &Message::Ping(ping), self.codec())
                 .await
                 .is_err()
             {
@@ -580,6 +600,7 @@ impl Control {
                 auth_digest: auth::compute_auth_digest(&token, timestamp),
                 timestamp,
             }),
+            self.codec(),
         )
         .await?;
 
@@ -588,7 +609,7 @@ impl Control {
                 return Ok(());
             }
             msg = msg::read_msg(&mut data) => {
-                match msg? {
+                match msg?.0 {
                     Message::StartDataConn(s) => s,
                     other => {
                         return Err(anyhow!("expected StartDataConn, got {}", other.type_byte()))
@@ -601,7 +622,9 @@ impl Control {
             return Err(anyhow!("StartDataConn error: {}", start.error));
         }
 
-        self.tunnels.handle_data_conn(&start, data).await
+        self.tunnels
+            .handle_data_conn(&start, data, self.codec())
+            .await
     }
 }
 

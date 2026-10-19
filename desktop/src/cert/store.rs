@@ -197,7 +197,10 @@ pub fn new_id(prefix: &str) -> String {
     )
 }
 
-fn read_json_or_default<T: serde::de::DeserializeOwned + Default>(path: &Path) -> Result<T> {
+fn read_json_or_default<T>(path: &Path) -> Result<T>
+where
+    T: for<'de> nextjson::NsonDeserialize<'de> + Default,
+{
     if !path.exists() {
         return Ok(T::default());
     }
@@ -205,14 +208,14 @@ fn read_json_or_default<T: serde::de::DeserializeOwned + Default>(path: &Path) -
     if raw.trim().is_empty() {
         return Ok(T::default());
     }
-    serde_json::from_str(&raw).with_context(|| format!("parse {}", path.display()))
+    nextjson::nextdecode(raw.as_bytes()).with_context(|| format!("parse {}", path.display()))
 }
 
-fn write_json_atomic<T: serde::Serialize>(path: &Path, value: &T) -> Result<()> {
+fn write_json_atomic<T: nextjson::NsonSerialize + ?Sized>(path: &Path, value: &T) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let raw = serde_json::to_string_pretty(value).context("serialize json")?;
+    let raw = nextjson::to_string_pretty(value).context("serialize json")?;
     let tmp = path.with_extension("tmp");
     fs::write(&tmp, &raw).with_context(|| format!("write {}", tmp.display()))?;
     fs::rename(&tmp, path).with_context(|| format!("rename {}", path.display()))?;

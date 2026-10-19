@@ -360,12 +360,6 @@ impl ServerConfig {
         tls.trusted_ca_file = super::resolve_maybe_relative(base, &tls.trusted_ca_file);
     }
 
-    pub fn from_defaults() -> Self {
-        let mut cfg = Self::default();
-        cfg.complete();
-        cfg
-    }
-
     pub fn listen_host(&self) -> anyhow::Result<String> {
         Ok(parse_host_port(&self.listen, default_listen_port())?.0)
     }

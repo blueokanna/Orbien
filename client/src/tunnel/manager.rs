@@ -76,7 +76,12 @@ impl TunnelManager {
         names
     }
 
-    pub async fn handle_data_conn(&self, start: &StartDataConn, data: DynStream) -> Result<()> {
+    pub async fn handle_data_conn(
+        &self,
+        start: &StartDataConn,
+        data: DynStream,
+        codec: orbien_core::msg::Codec,
+    ) -> Result<()> {
         let entry = self
             .by_name
             .read()
@@ -85,7 +90,7 @@ impl TunnelManager {
             .cloned()
             .ok_or_else(|| anyhow!("unknown tunnel: {}", start.tunnel_name))?;
         let udp_packet_size = self.udp_packet_size;
-        serve_entry(entry, udp_packet_size, start, data).await
+        serve_entry(entry, udp_packet_size, start, data, codec).await
     }
 
     async fn handle_stream(
@@ -113,15 +118,22 @@ impl TunnelManager {
         }
 
         let (svc_host, svc_port) = entry.cfg.service_host_port()?;
-        let local_addr = entry.cfg.service.trim().to_string();
-        if local_addr.is_empty() || svc_port == 0 {
+        if svc_host.trim().is_empty() || svc_port == 0 {
             return Err(anyhow!(
                 "tunnel {} has empty or invalid service (local backend)",
                 entry.cfg.name
             ));
         }
-        // 连接到本地真实服务
-        let local = TcpStream::connect(&local_addr).await.map_err(|e| {
+        let local_addr = orbien_core::net::resolve_socket_addr(&svc_host, svc_port)
+            .await
+            .map_err(|e| {
+                anyhow!(
+                    "resolve local service {} for tunnel {}: {e}",
+                    entry.cfg.service,
+                    entry.cfg.name
+                )
+            })?;
+        let local = TcpStream::connect(local_addr).await.map_err(|e| {
             anyhow!(
                 "dial local {} for tunnel {}: {}",
                 local_addr,
@@ -175,13 +187,13 @@ impl TunnelManager {
         entry: Arc<TunnelEntry>,
         udp_packet_size: usize,
         data: DynStream,
+        codec: orbien_core::msg::Codec,
     ) -> Result<()> {
-        let local_addr: std::net::SocketAddr = entry
-            .cfg
-            .service
-            .trim()
-            .parse()
-            .map_err(|e| anyhow!("invalid local udp service {}: {e}", entry.cfg.service))?;
+        let (svc_host, svc_port) = entry.cfg.service_host_port()?;
+        let local_addr: std::net::SocketAddr =
+            orbien_core::net::resolve_socket_addr(&svc_host, svc_port)
+                .await
+                .map_err(|e| anyhow!("resolve local udp service {}: {e}", entry.cfg.service))?;
 
         let (cancel_tx, cancel_rx) = oneshot::channel();
         {
@@ -206,6 +218,7 @@ impl TunnelManager {
             udp_packet_size,
             entry.proxy_protocol.map(|s| s.to_string()),
             cancel_rx,
+            codec,
         )
         .await
     }
@@ -216,9 +229,10 @@ async fn serve_entry(
     udp_packet_size: usize,
     start: &StartDataConn,
     data: DynStream,
+    codec: orbien_core::msg::Codec,
 ) -> Result<()> {
     match entry.cfg.protocol.as_str() {
-        "udp" => TunnelManager::handle_udp(entry, udp_packet_size, data).await,
+        "udp" => TunnelManager::handle_udp(entry, udp_packet_size, data, codec).await,
         "tcp" | "http" | "https" => TunnelManager::handle_stream(&entry, start, data).await,
         other => Err(anyhow!(
             "unsupported tunnel protocol on data conn: {} ({})",

@@ -202,7 +202,7 @@ async fn handle_https_ingress(
         )
         .await?;
 
-    let data = maybe_limit(data, route.limiter.clone());
+    let data = maybe_limit(data.stream, route.limiter.clone());
     let user = PrefixedStream::new(prefix, ingress.stream);
 
     tracing::debug!(

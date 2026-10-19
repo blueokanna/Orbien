@@ -1,19 +1,25 @@
 use super::Control;
 use anyhow::{anyhow, Result};
-use orbien_core::msg::{self, Message, ReqDataConn, StartDataConn};
+use orbien_core::msg::{self, Codec, Message, ReqDataConn, StartDataConn};
 use orbien_core::transport::DynStream;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
+/// A pooled data connection plus the codec its handshake used.
+pub struct DataConn {
+    pub stream: DynStream,
+    pub codec: Codec,
+}
+
 impl Control {
-    pub async fn push_data_conn(&self, stream: DynStream) {
-        let _ = self.data_tx.send(stream).await;
+    pub async fn push_data_conn(&self, stream: DynStream, codec: Codec) {
+        let _ = self.data_tx.send(DataConn { stream, codec }).await;
         self.data_notify.notify_waiters();
     }
 
-    async fn try_pop_data(&self) -> Option<DynStream> {
+    async fn try_pop_data(&self) -> Option<DataConn> {
         let mut rx = self.data_rx.lock().await;
         rx.try_recv().ok()
     }
@@ -32,7 +38,7 @@ impl Control {
         .await;
     }
 
-    pub async fn get_data_conn(self: &Arc<Self>) -> Result<DynStream> {
+    pub async fn get_data_conn(self: &Arc<Self>) -> Result<DataConn> {
         if let Some(conn) = self.try_pop_data().await {
             self.spawn_refill().await;
             return Ok(conn);
@@ -65,21 +71,27 @@ impl Control {
             return Err(anyhow!("control closed"));
         }
         let mut writer = self.writer.lock().await;
-        msg::write_msg(&mut *writer, &Message::ReqDataConn(ReqDataConn {})).await?;
+        msg::write_msg(
+            &mut *writer,
+            &Message::ReqDataConn(ReqDataConn {}),
+            self.codec(),
+        )
+        .await?;
         Ok(())
     }
 
     pub async fn start_data_conn(
         &self,
-        mut data: DynStream,
+        conn: DataConn,
         tunnel_name: &str,
         src_addr: String,
         src_port: u16,
         dst_addr: String,
         dst_port: u16,
-    ) -> Result<DynStream> {
+    ) -> Result<DataConn> {
+        let DataConn { mut stream, codec } = conn;
         msg::write_msg(
-            &mut data,
+            &mut stream,
             &Message::StartDataConn(StartDataConn {
                 tunnel_name: tunnel_name.to_string(),
                 src_addr,
@@ -88,8 +100,9 @@ impl Control {
                 dst_port,
                 error: String::new(),
             }),
+            codec,
         )
         .await?;
-        Ok(data)
+        Ok(DataConn { stream, codec })
     }
 }

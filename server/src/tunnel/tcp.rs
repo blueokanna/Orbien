@@ -125,7 +125,7 @@ async fn handle_ingress(
         )
         .await?;
 
-    let data = maybe_limit(data, limiter);
+    let data = maybe_limit(data.stream, limiter);
 
     tracing::debug!(
         tunnel = %tunnel_name,

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use orbien_core::config::ClientConfig;
 use orbien_core::net::TcpKeepaliveConfig;
@@ -9,7 +9,7 @@ use orbien_core::transport::{
 use rustls::ClientConfig as RustlsClientConfig;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::net::{lookup_host, TcpStream};
+use tokio::net::TcpStream;
 
 #[async_trait]
 pub trait Connector: Send + Sync {
@@ -62,6 +62,7 @@ pub async fn build_connector(cfg: &ClientConfig) -> Result<Arc<dyn Connector>> {
             } else {
                 Ok(Arc::new(TcpConnector {
                     endpoint: cfg.server_endpoint(),
+                    port: cfg.server_port()?,
                     tls,
                     keepalive,
                 }))
@@ -81,6 +82,7 @@ pub async fn build_connector(cfg: &ClientConfig) -> Result<Arc<dyn Connector>> {
             } else {
                 Ok(Arc::new(WebsocketConnector {
                     endpoint: cfg.server_endpoint(),
+                    port: cfg.server_port()?,
                     ws_path: cfg.transport.ws_path.clone(),
                     tls,
                     keepalive,
@@ -130,7 +132,8 @@ async fn dial_tcp_tls(
     tls: &TlsDialOpts,
     keepalive: TcpKeepaliveConfig,
 ) -> Result<DynStream> {
-    let stream = TcpStream::connect(cfg.server_endpoint()).await?;
+    let addr = resolve_addr(cfg).await?;
+    let stream = TcpStream::connect(addr).await?;
     orbien_core::net::tune_tcp_stream(&stream, keepalive);
     tls.maybe_wrap(boxed_stream(stream)).await
 }
@@ -140,7 +143,14 @@ async fn dial_ws_tls(
     tls: &TlsDialOpts,
     keepalive: TcpKeepaliveConfig,
 ) -> Result<DynStream> {
-    let stream = dial_websocket(&cfg.server_endpoint(), &cfg.transport.ws_path, keepalive).await?;
+    let addr = resolve_addr(cfg).await?;
+    let stream = dial_websocket(
+        addr,
+        &cfg.server_endpoint(),
+        &cfg.transport.ws_path,
+        keepalive,
+    )
+    .await?;
     tls.maybe_wrap(stream).await
 }
 
@@ -151,11 +161,7 @@ async fn dial_kcp_tls(addr: SocketAddr, tls: &TlsDialOpts) -> Result<DynStream> 
 
 async fn resolve_addr(cfg: &ClientConfig) -> Result<SocketAddr> {
     let endpoint = cfg.server_endpoint();
-    let addr = lookup_host(endpoint.as_str())
-        .await?
-        .next()
-        .ok_or_else(|| anyhow!("cannot resolve {endpoint}"))?;
-    Ok(addr)
+    orbien_core::net::resolve_endpoint(&endpoint, cfg.server_port()?).await
 }
 
 struct YamuxConnector {
@@ -175,6 +181,7 @@ impl Connector for YamuxConnector {
 
 struct TcpConnector {
     endpoint: String,
+    port: u16,
     tls: TlsDialOpts,
     keepalive: TcpKeepaliveConfig,
 }
@@ -182,7 +189,8 @@ struct TcpConnector {
 #[async_trait]
 impl Connector for TcpConnector {
     async fn open(&self) -> Result<DynStream> {
-        let stream = TcpStream::connect(&self.endpoint).await?;
+        let addr = orbien_core::net::resolve_endpoint(&self.endpoint, self.port).await?;
+        let stream = TcpStream::connect(addr).await?;
         orbien_core::net::tune_tcp_stream(&stream, self.keepalive);
         self.tls.maybe_wrap(boxed_stream(stream)).await
     }
@@ -190,6 +198,7 @@ impl Connector for TcpConnector {
 
 struct WebsocketConnector {
     endpoint: String,
+    port: u16,
     ws_path: String,
     tls: TlsDialOpts,
     keepalive: TcpKeepaliveConfig,
@@ -198,7 +207,8 @@ struct WebsocketConnector {
 #[async_trait]
 impl Connector for WebsocketConnector {
     async fn open(&self) -> Result<DynStream> {
-        let stream = dial_websocket(&self.endpoint, &self.ws_path, self.keepalive).await?;
+        let addr = orbien_core::net::resolve_endpoint(&self.endpoint, self.port).await?;
+        let stream = dial_websocket(addr, &self.endpoint, &self.ws_path, self.keepalive).await?;
         self.tls.maybe_wrap(stream).await
     }
 }

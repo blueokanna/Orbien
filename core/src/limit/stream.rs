@@ -52,7 +52,7 @@ impl<S> LimitedStream<S> {
     }
 
     fn io_chunk_cap(&self) -> usize {
-        self.limiter.burst().max(1).min(MAX_IO_CHUNK)
+        self.limiter.burst().clamp(1, MAX_IO_CHUNK)
     }
 }
 

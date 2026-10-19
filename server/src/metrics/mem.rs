@@ -211,7 +211,7 @@ impl MemMetrics {
         let mut g = self.state.lock().expect("metrics lock");
         g.tunnel_type_counts
             .entry(tunnel_type.to_string())
-            .or_insert_with(Counter::new)
+            .or_default()
             .inc(1);
 
         let now_unix = Local::now().timestamp();

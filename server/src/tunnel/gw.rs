@@ -177,10 +177,7 @@ pub fn parse_basic_auth(header_value: &str) -> Option<(String, String)> {
     if value.len() < PREFIX.len() || !value[..PREFIX.len()].eq_ignore_ascii_case(PREFIX) {
         return None;
     }
-    use base64::Engine;
-    let decoded = base64::engine::general_purpose::STANDARD
-        .decode(value[PREFIX.len()..].trim())
-        .ok()?;
+    let decoded = orbien_proto::base64::decode(value[PREFIX.len()..].trim().as_bytes())?;
     let text = String::from_utf8(decoded).ok()?;
     let (user, pass) = text.split_once(':')?;
     Some((user.to_string(), pass.to_string()))

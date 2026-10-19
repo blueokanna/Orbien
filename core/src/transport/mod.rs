@@ -51,8 +51,4 @@ impl Protocol {
             Self::Kcp => "kcp",
         }
     }
-
-    pub fn supports_yamux(self) -> bool {
-        matches!(self, Self::Tcp | Self::Websocket | Self::Kcp)
-    }
 }

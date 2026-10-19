@@ -45,7 +45,7 @@ impl Control {
         };
 
         let mut writer = self.writer.lock().await;
-        msg::write_msg(&mut *writer, &Message::NewTunnelResp(resp)).await?;
+        msg::write_msg(&mut *writer, &Message::NewTunnelResp(resp), self.codec()).await?;
         Ok(())
     }
 

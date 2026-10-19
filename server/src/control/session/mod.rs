@@ -1,15 +1,17 @@
 mod data_pool;
 mod register;
 
+pub use data_pool::DataConn;
+
 use crate::metrics::MemMetrics;
 use crate::tunnel::{
     DetachedTunnel, HttpGw, HttpsGw, PortTable, TunnelManager, TunnelOwner, TunnelRegistry,
 };
 use anyhow::Result;
 use orbien_core::config::ServerConfig;
-use orbien_core::msg::{self, KickOut, Message, Ping, Pong};
+use orbien_core::msg::{self, Codec, KickOut, Message, Ping, Pong};
 use orbien_core::transport::DynStream;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::io::AsyncWriteExt;
@@ -38,8 +40,8 @@ pub struct Control {
     cfg: ServerConfig,
     reader: Mutex<CtrlRead>,
     writer: Mutex<CtrlWrite>,
-    data_tx: mpsc::Sender<DynStream>,
-    data_rx: Mutex<mpsc::Receiver<DynStream>>,
+    data_tx: mpsc::Sender<DataConn>,
+    data_rx: Mutex<mpsc::Receiver<DataConn>>,
     data_notify: Notify,
     shutdown_notify: Notify,
     tunnels: Mutex<TunnelManager>,
@@ -56,6 +58,8 @@ pub struct Control {
     https_gw: Option<Arc<HttpsGw>>,
     pub metrics: Arc<MemMetrics>,
     last_ping_unix: AtomicI64,
+    /// Codec of the last frame received; replies mirror it.
+    codec: AtomicU8,
 }
 
 impl Control {
@@ -119,7 +123,21 @@ impl Control {
                     .map(|d| d.as_secs() as i64)
                     .unwrap_or(0),
             ),
+            codec: AtomicU8::new(0),
         }
+    }
+
+    pub(super) fn codec(&self) -> Codec {
+        if self.codec.load(Ordering::Relaxed) == 1 {
+            Codec::Binary
+        } else {
+            Codec::Json
+        }
+    }
+
+    fn remember_codec(&self, codec: Codec) {
+        self.codec
+            .store(u8::from(codec.is_binary()), Ordering::Relaxed);
     }
 
     pub fn owner(&self) -> TunnelOwner {
@@ -173,7 +191,9 @@ impl Control {
                 version: version.into(),
                 session_id: self.session_id.clone(),
                 error: String::new(),
+                codec: Codec::Binary.as_str().into(),
             }),
+            Codec::Json,
         )
         .await?;
         drop(writer);
@@ -189,7 +209,9 @@ impl Control {
                 version: version.into(),
                 session_id: String::new(),
                 error: error.into(),
+                codec: String::new(),
             }),
+            Codec::Json,
         )
         .await?;
         Ok(())
@@ -277,7 +299,10 @@ impl Control {
                     msg::read_msg(&mut *reader).await
                 } => {
                     match msg {
-                        Ok(m) => m,
+                        Ok((m, codec)) => {
+                            self.remember_codec(codec);
+                            m
+                        }
                         Err(e) => {
                             if !self.closed.load(Ordering::SeqCst) {
                                 tracing::debug!(error = %e, "control read ended");
@@ -370,6 +395,7 @@ impl Control {
                 &Message::KickOut(KickOut {
                     reason: reason.clone(),
                 }),
+                self.codec(),
             )
             .await
         })
@@ -413,7 +439,7 @@ impl Control {
             Ordering::Relaxed,
         );
         let mut writer = self.writer.lock().await;
-        msg::write_msg(&mut *writer, &Message::Pong(Pong::default())).await?;
+        msg::write_msg(&mut *writer, &Message::Pong(Pong::default()), self.codec()).await?;
         Ok(())
     }
 }
